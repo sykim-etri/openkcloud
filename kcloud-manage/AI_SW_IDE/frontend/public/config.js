@@ -1,0 +1,4 @@
+// Runtime configuration that can be injected by ConfigMap
+window.ENV = {
+  API_URL: '${API_URL}' // This will be replaced by init script
+}; 
