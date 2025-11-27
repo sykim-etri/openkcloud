@@ -1,0 +1,17 @@
+# This file contains runtime (non-python) dependencies
+# More info at: http://docs.openstack.org/infra/bindep/readme.html
+
+# fonts-freefont-otf is needed for pdf docs builds with the 'xelatex' engine
+fonts-freefont-otf [pdf-docs]
+
+# Required for running the 'lspci' command
+pciutils
+
+# libsrvg2 is needed for sphinxcontrib-svg2pdfconverter in docs builds.
+librsvg2-tools [doc platform:rpm]
+librsvg2-bin [doc platform:dpkg]
+latexmk [pdf-docs]
+texlive [pdf-docs]
+texlive-latex-recommended [pdf-docs]
+texlive-xetex [pdf-docs]
+graphviz [doc]
