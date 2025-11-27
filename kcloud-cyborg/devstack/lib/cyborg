@@ -1,0 +1,289 @@
+#!/bin/bash
+#
+# lib/cyborg
+# Functions to control the configuration and operation of the **Cyborg** service
+
+# Dependencies:
+#
+# - ``functions`` file
+# - ``DEST``, ``DATA_DIR``, ``STACK_USER`` must be defined
+# - ``SERVICE_{TENANT_NAME|PASSWORD}`` must be defined
+# - ``SERVICE_HOST``
+# - ``KEYSTONE_TOKEN_FORMAT`` must be defined
+
+# ``stack.sh`` calls the entry points in this order:
+#
+# - install_cyborg
+# - init_cyborg
+# - start_cyborg
+# - stop_cyborg
+# - cleanup_cyborg
+
+function check_cyborg_service_deps {
+    if is_service_enabled cyborg-api; then
+        local req_services="key"
+        req_services+=" placement"
+        for srv in $req_services; do
+            if ! is_service_enabled "$srv"; then
+                die $LINENO "$srv should be enabled for Cyborg."
+            fi
+        done
+    fi
+}
+
+
+function clone_cyborg_client {
+    if [[ "${CYBORG_CLIENT_INSTALL}" == "True" ]]; then
+        git_clone ${CYBORG_CLIENT_REPO} ${CYBORG_CLIENT_DIR} ${CYBORG_CLIENT_BRANCH}
+    fi
+}
+
+function install_cyborg_client {
+    if [[ "${CYBORG_CLIENT_INSTALL}" == "True" ]]; then
+        setup_develop ${CYBORG_CLIENT_DIR}
+    fi
+}
+
+# install_cyborg() - Install the things!
+function install_cyborg {
+    # make sure all needed services are enabled
+    check_cyborg_service_deps
+    # install the cyborg project from git
+    setup_develop $CYBORG_DIR
+}
+
+# cleanup_cyborg_config_files() - Remove residual cache/config/log files,
+# left over from previous runs that would need to clean up.
+function cleanup_cyborg_config_files {
+    sudo rm -rf $CYBORG_CONF_DIR
+    sudo rm -rf $CYBORG_AUTH_CACHE_DIR
+}
+
+# cleanup_cyborg() - Clean everything left from Cyborg
+function cleanup_cyborg {
+    cleanup_cyborg_config_files
+    if [[ "$CYBORG_USE_UWSGI" == "True" ]]; then
+        remove_uwsgi_config "$CYBORG_UWSGI_CONF" "$CYBORG_UWSGI"
+    fi
+}
+
+# configure_cyborg_dirs() - Create all directories required by Cyborg and
+# associated services.
+function configure_cyborg_dirs {
+    sudo install -d -o $STACK_USER $CYBORG_CONF_DIR $STACK_USER $CYBORG_DATA_DIR \
+        $CYBORG_STATE_PATH
+
+    # Create the logs directory when saving the deploy logs to the filesystem
+    if [[ "$CYBORG_DEPLOY_LOGS_STORAGE_BACKEND" == "local" && "$CYBORG_DEPLOY_LOGS_COLLECT" != "never" ]]; then
+        install -d -o $STACK_USER $CYBORG_DEPLOY_LOGS_LOCAL_PATH
+    fi
+}
+
+# Defaults
+# --------
+
+# create_cyborg_accounts - Set up common required cyborg accounts
+#
+# Project     User       Roles
+# ------------------------------
+# service     cyborg      admin
+function create_cyborg_accounts {
+    if is_service_enabled cyborg-api; then
+        create_service_user "cyborg" "admin"
+        get_or_create_service "cyborg" "accelerator" "Cyborg Accelerators Service"
+        get_or_create_endpoint "cyborg" \
+            "$REGION_NAME" \
+            "$CYBORG_API_URL/v2" \
+            "$CYBORG_API_URL/v2" \
+            "$CYBORG_API_URL/v2"
+    fi
+}
+
+# configure_cyborg() - Set config files, create data dirs, etc
+function configure_cyborg {
+    if is_service_enabled cyborg; then
+        configure_cyborg_common
+    fi
+
+    # Configure Cyborg conductor, if it was enabled.
+    if is_service_enabled cyborg-cond; then
+        configure_cyborg_conductor
+    fi
+
+    # Configure Cyborg API, if it was enabled.
+    if is_service_enabled cyborg-api; then
+        configure_cyborg_api
+    fi
+
+    if is_service_enabled cyborg-agent; then
+        configure_cyborg_agent
+    fi
+
+    # NOTE(crushil) Need to add logging
+
+}
+
+function configure_cyborg_common {
+    configure_cyborg_dirs
+    # Copy over cyborg configuration file and configure common parameters.
+    iniset $CYBORG_CONF_FILE DEFAULT debug True
+    inicomment $CYBORG_CONF_FILE DEFAULT log_file
+    iniset $CYBORG_CONF_FILE database connection `database_connection_url cyborg`
+    iniset $CYBORG_CONF_FILE DEFAULT state_path $CYBORG_STATE_PATH
+    iniset $CYBORG_CONF_FILE DEFAULT use_syslog $SYSLOG
+    iniset_rpc_backend cyborg $CYBORG_CONF_FILE
+}
+
+function configure_cyborg_agent {
+    # set up drivers / hardware types
+    iniset $CYBORG_CONF_FILE agent enabled_drivers $CYBORG_ENABLED_DRIVERS
+}
+
+# configure_cyborg_api() - Is used by configure_cyborg(). Performs
+# API specific configuration.
+function configure_cyborg_api {
+    iniset $CYBORG_CONF_FILE DEFAULT auth_strategy $CYBORG_AUTH_STRATEGY
+    configure_auth_token_middleware $CYBORG_CONF_FILE cyborg $CYBORG_AUTH_CACHE_DIR/api
+    iniset $CYBORG_CONF_FILE oslo_policy policy_file $CYBORG_POLICY_JSON
+
+    iniset $CYBORG_CONF_FILE conductor automated_clean $CYBORG_AUTOMATED_CLEAN_ENABLED
+
+    if [ "$CYBORG_USE_UWSGI" == "True" ]; then
+        write_uwsgi_config "$CYBORG_UWSGI_CONF" "$CYBORG_UWSGI" "/accelerator"
+    fi
+    sudo cp -p $CYBORG_DIR/etc/cyborg/api-paste.ini $CYBORG_API_PASTE_INI
+}
+
+function configure_auth_for {
+    local service_config_section
+    service_config_section=$1
+    iniset $CYBORG_CONF_FILE $service_config_section auth_type password
+    iniset $CYBORG_CONF_FILE $service_config_section auth_url $KEYSTONE_SERVICE_URI
+    iniset $CYBORG_CONF_FILE $service_config_section username cyborg
+    iniset $CYBORG_CONF_FILE $service_config_section password $SERVICE_PASSWORD
+    iniset $CYBORG_CONF_FILE $service_config_section project_name $SERVICE_PROJECT_NAME
+    iniset $CYBORG_CONF_FILE $service_config_section user_domain_id default
+    iniset $CYBORG_CONF_FILE $service_config_section project_domain_id default
+    iniset $CYBORG_CONF_FILE $service_config_section cafile $SSL_BUNDLE_FILE
+}
+
+function configure_cyborg_other_client_section {
+    # $1 can be nova placement or other.
+    local section=$1
+    iniset $CYBORG_CONF_FILE $section auth_type "password"
+    iniset $CYBORG_CONF_FILE $section auth_url "$KEYSTONE_SERVICE_URI"
+    iniset $CYBORG_CONF_FILE $section username $section
+    iniset $CYBORG_CONF_FILE $section password "$SERVICE_PASSWORD"
+    iniset $CYBORG_CONF_FILE $section user_domain_name "$SERVICE_DOMAIN_NAME"
+    iniset $CYBORG_CONF_FILE $section project_name "$SERVICE_TENANT_NAME"
+    iniset $CYBORG_CONF_FILE $section project_domain_name "$SERVICE_DOMAIN_NAME"
+}
+
+# configure_cyborg_conductor() - Is used by configure_cyborg().
+# Sets conductor specific settings.
+function configure_cyborg_conductor {
+
+    # set keystone region for all services
+    iniset $CYBORG_CONF_FILE keystone region_name $REGION_NAME
+
+    # this one is needed for lookup of Cyborg API endpoint via Keystone
+    configure_auth_for service_catalog
+    configure_cyborg_other_client_section nova
+    configure_cyborg_other_client_section placement
+
+    # NOTE(sean-k-mooney) it is not obvious why this is in the conductor
+    # section or what sets is_deployed_by_agent so this should either be
+    # documented, removed or moved to the correct locaiton.
+    if is_deployed_by_agent; then
+        iniset $CYBORG_CONF_FILE api ramdisk_heartbeat_timeout 30
+    fi
+}
+
+# create_cyborg_cache_dir() - Part of the init_cyborg() process
+function create_cyborg_cache_dir {
+    # Create cache dir
+    sudo mkdir -p $CYBORG_AUTH_CACHE_DIR/api
+    sudo chown $STACK_USER $CYBORG_AUTH_CACHE_DIR/api
+    sudo mkdir -p $CYBORG_AUTH_CACHE_DIR/registry
+    sudo chown $STACK_USER $CYBORG_AUTH_CACHE_DIR/registry
+}
+
+# init_cyborg() - Initialize databases, etc.
+function init_cyborg {
+    if is_service_enabled cyborg-api; then
+        # (re)create Cyborg database
+        recreate_database cyborg utf8
+
+        # Migrate cyborg database
+        $CYBORG_BIN_DIR/cyborg-dbsync --config-file ${CYBORG_CONF_FILE} upgrade
+        create_cyborg_cache_dir
+    fi
+}
+
+
+# start_cyborg() - Start running processes, including screen
+function start_cyborg {
+    # Start Cyborg API server, if enabled.
+    if is_service_enabled cyborg-api; then
+        start_cyborg_api
+    fi
+
+    # Start Cyborg conductor, if enabled.
+    if is_service_enabled cyborg-cond; then
+        start_cyborg_conductor
+    fi
+
+    # Start Cyborg agent, if enabled.
+    if is_service_enabled cyborg-agent; then
+        start_cyborg_agent
+    fi
+}
+
+# start_cyborg_api() - Used by start_cyborg().
+# Starts Cyborg API server.
+function start_cyborg_api {
+    if [ "$CYBORG_USE_UWSGI" == "True" ]; then
+        run_process cyborg-api "$(which uwsgi) --ini $CYBORG_UWSGI_CONF --procname-prefix cyborg-api"
+    else
+        run_process cyborg-api "$CYBORG_BIN_DIR/cyborg-api --config-file $CYBORG_CONF_FILE"
+    fi
+}
+
+# start_cyborg_conductor() - Used by start_cyborg().
+# Starts Cyborg conductor.
+function start_cyborg_conductor {
+    run_process cyborg-cond "$CYBORG_BIN_DIR/cyborg-conductor --config-file=$CYBORG_CONF_FILE"
+}
+
+# start_cyborg_agent() - Used by start_cyborg().
+# Starts Cyborg agent.
+function start_cyborg_agent {
+    run_process cyborg-agent "$CYBORG_BIN_DIR/cyborg-agent --config-file=$CYBORG_CONF_FILE"
+}
+
+# stop_cyborg() - Stop running processes
+function stop_cyborg {
+    if [ "$CYBORG_USE_UWSGI" == "True" ]; then
+        disable_apache_site cyborg-api
+        restart_apache_server
+    fi
+    stop_process cyborg-api
+    stop_process cyborg-cond
+    stop_process cyborg-agent
+}
+
+function cyborg_configure_tempest {
+    iniset $TEMPEST_CONFIG service_available cyborg True
+
+    if [[ -n "$TEMPEST_ACCELERATOR_MIN_MICROVERSION" ]]; then
+        iniset $TEMPEST_CONFIG accelerator min_microversion $TEMPEST_ACCELERATOR_MIN_MICROVERSION
+    fi
+    if [[ -n "$TEMPEST_ACCELERATOR_MAX_MICROVERSION" ]]; then
+        iniset $TEMPEST_CONFIG accelerator max_microversion $TEMPEST_ACCELERATOR_MAX_MICROVERSION
+    fi
+}
+
+# Restore xtrace + pipefail
+$_XTRACE_CYBORG
+$_PIPEFAIL_CYBORG
+

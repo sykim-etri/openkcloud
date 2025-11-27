@@ -1,0 +1,397 @@
+# variables in path
+accelerator_request_uuid:
+  description: |
+    The UUID of one accelerator request.
+  in: path
+  required: true
+  type: string
+attribute_request_uuid:
+  description: |
+    The UUID of the attribute.
+  in: path
+  required: true
+  type: string
+deployable_uuid:
+  description: |
+    The UUID of the deployable.
+    This must be a valid UUID otherwise API will return 400.
+  in: path
+  required: true
+  type: string
+device_profile_name_or_uuid:
+  description: |
+    The name or uuid of the device_profile for your accelerator request.
+  in: path
+  required: true
+  type: string
+  min_version: 2.2
+  -H "OpenStack-API-Version: 2.2"
+device_profile_uuid_v_21:
+  description: |
+    The uuid of the device_profile for your accelerator request.
+    This must be a valid uuid otherwise api will return 400.
+  in: path
+  required: true
+  type: string
+  max_version: 2.1
+  -H "OpenStack-API-Version: 2.1"
+device_uuid:
+  description: |
+    The UUID of the device.
+    This must be a valid UUID otherwise API will return 400.
+  in: path
+  required: true
+  type: string
+# variables in query
+attribute_request_depid:
+  description: |
+    ID of deployable associated with the attribute.
+  in: query
+  required: true
+  type: integer
+device_filters:
+  description: |
+    A list of filter of ``FilterType`` to get device list by filter.
+  in: query
+  required: false
+  type: array
+device_type:
+  description: |
+    The type of the device.
+  in: query
+  required: false
+  type: string
+device_vendor:
+  description: |
+    The vendor ID of the device.
+  in: query
+  required: false
+  type: string
+filters:
+  description: |
+    A list of FilterType(in json string format).
+  in: query
+  required: false
+  type: string
+hostname:
+  description: |
+    The hostname of a compute node where the device locates.
+  in: query
+  required: false
+  type: string
+
+# variables in body
+attribute_deployable_id_req:
+  description: |
+    ID of deployable associated with the attribute.
+  in: body
+  required: true
+  type: integer
+attribute_deployable_id_resp:
+  description: |
+    ID of deployable associated with the attribute.
+  in: body
+  required: true
+  type: integer
+attribute_id_resp:
+  description: |
+    ID of the attribute.
+  in: body
+  required: true
+  type: integer
+attribute_key_req:
+  description: |
+    The key of the attribute.
+  in: body
+  required: true
+  type: string
+attribute_key_resp:
+  description: |
+    The key of the attribute.
+  in: body
+  required: true
+  type: string
+attribute_uuid_resp:
+  description: |
+    The UUID of the attribute.
+  in: body
+  required: true
+  type: string
+attribute_value_req:
+  description: |
+    The value of the attribute.
+  in: body
+  required: true
+  type: string
+attribute_value_resp:
+  description: |
+    The value of the attribute.
+  in: body
+  required: true
+  type: string
+attributes:
+  description: |
+    A list of ``attributes`` objects.
+  in: body
+  required: true
+  type: array
+created:
+  description: |
+    The date and time when the resource was created. The date and time
+    stamp format is `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
+
+    ::
+
+      CCYY-MM-DDThh:mm:ss±hh:mm
+
+    For example, ``2015-08-27T09:49:58-05:00``. The ``±hh:mm``
+    value, if included, is the time zone as an offset from UTC.  In
+    the previous example, the offset value is ``-05:00``.
+  in: body
+  required: true
+  type: string
+deployable_attributes_list:
+  description: |
+    A list of dictionaries (in json string format) representing attributes of
+    the deployable.
+  in: body
+  required: true
+  type: string
+deployable_bitstream_id:
+  description: |
+    The UUID of the bitstream corresponding to the deployable.
+  in: body
+  required: true
+  type: string
+deployable_device_id:
+  description: |
+    ID of device associated with the deployable.
+  in: body
+  required: true
+  type: integer
+deployable_driver_name:
+  description: |
+    Name of the driver reported.
+  in: body
+  required: true
+  type: string
+deployable_name:
+  description: |
+    Name of the deployable.
+  in: body
+  required: true
+  type: string
+deployable_num_accelerators:
+  description: |
+    Number of accelerators spawned by this deployable.
+  in: body
+  requied: true
+  type: integer
+deployable_parent_id:
+  description: |
+    The parent_id refers to the id of the deployable's parent node.
+  in: body
+  required: true
+  type: string
+deployable_root_id:
+  description: |
+    The root_id refers to the id of the deployable's root to
+    for nested tree.
+  in: body
+  required: true
+  type: string
+deployable_rp_uuid:
+  description: |
+    UUID of the resource provider corresponding to this deployable.
+  in: body
+  required: true
+  type: string
+deployable_uuid_resp:
+  description: |
+    The UUID of the deployable.
+  in: body
+  required: true
+  type: string
+deployables:
+  description: |
+    This is a list of dictionaries, with each dictionary representing
+    a deployable object.
+  in: body
+  required: true
+  type: array
+device_model_resp:
+  description: |
+    The model of the device.
+  in: body
+  required: true
+  type: string
+device_prof_description_req:
+  description: |
+    A free form description of the device profile. Limited to 255 characters
+    in length.
+  type: string
+  in: body
+  required: false
+device_prof_groups_req:
+  description: |
+    This is a list of dictionaries to describe requested accelerator resource
+    by users, where users use keys to describe the resource_classes or traits
+    and values to indicate its quantity or property. This is intentionally
+    similar to extra_specs in nova flavor, and uses the same keywords for
+    resources and traits. The key-value pair can either be a resource/trait
+    or a Cyborg property. Cyborg property is of the form
+    "accel:<key>": "<value>". The valid key-value pairs can be found
+    `below <https://opendev.org/openstack/cyborg-specs/src/branch/master/specs/train/implemented/device-profiles.rst#valid-accel-keys>`_.
+  in: body
+  required: true
+  type: a list of dictionaries
+device_prof_groups_resp:
+  description: |
+    This is a list of dictionaries to describe returned accelerator resource
+    by users, where users use keys to describe the resource_classes or traits
+    and values to indicate its quantity or property. This is intentionally
+    similar to extra_specs in nova flavor, and uses the same keywords for
+    resources and traits. The key-value pair can either be a resource/trait
+    or a Cyborg property. Cyborg property is of the form
+    "accel:<key>": "<value>". The valid key-value pairs can be found
+    `below <https://opendev.org/openstack/cyborg-specs/src/branch/master/specs/train/implemented/device-profiles.rst#valid-accel-keys>`_.
+  in: body
+  required: true
+  type: a list of dictionaries
+device_prof_name_req:
+  description: |
+    The display name of a device profile.
+  in: body
+  required: true
+  type: string
+device_prof_name_resp:
+  description: |
+    The display name of a device profile.
+  in: body
+  required: true
+  type: string
+device_profile:
+  description: |
+    A list of ``device profile`` objects.
+  in: body
+  required: true
+  type: array
+device_profile_description_resp:
+  description: |
+    The display description of a device profile.
+  in: body
+  required: true
+  type: string
+device_profile_name:
+  description: |
+    The display name of a device profile.
+  in: body
+  required: true
+  type: string
+device_profile_uuid_resp:
+  description: |
+    The uuid of the device_profile.
+  in: body
+  required: true
+  type: string
+device_profiles:
+  description: |
+    A list of ``device profiles`` objects.
+  in: body
+  required: true
+  type: array
+device_rp_uuid_bind_unbind_req:
+  description: |
+    UUID of the target accelerator (resource provider) for bind or unbind of
+    one accelerator request.
+  in: body
+  required: true
+  type: string
+device_status_resp:
+  description: |
+    The status of device.  One of maintaining or enabled.
+  in: body
+  required: true
+  type: string
+device_std_board_info_resp:
+  description: |
+    The standard board information of the device.
+  in: body
+  required: true
+  type: string
+device_type_resp:
+  description: |
+    Type of the device.
+  in: body
+  required: true
+  type: string
+device_uuid_resp:
+  description: |
+    The UUID of the device.
+  in: body
+  required: true
+  type: string
+device_vendor_board_info_resp:
+  description: |
+    The vendor board information of the device.
+  in: body
+  required: true
+  type: string
+device_vendor_resp:
+  description: |
+    The vendor of the device.
+  in: body
+  required: true
+  type: string
+devices:
+  description: |
+    A list of ``devices`` objects.
+  in: body
+  required: true
+  type: array
+hostname_bind_unbind_req:
+  description: |
+    The name of the target host for bind or unbind of one accelerator request.
+  in: body
+  required: true
+  type: string
+hostname_resp:
+  description: |
+    The host name of the device.
+  in: body
+  required: true
+  type: string
+instance_project_id_bind_unbind_req:
+  description: |
+    Project id of the target instance for bind or unbind of one accelerator request.
+  in: body
+  required: false
+  type: string
+  min_version: 2.1
+instance_uuid_bind_unbind_req:
+  description: |
+    UUID of the target instance for bind or unbind of one accelerator request.
+  in: body
+  required: true
+  type: string
+links:
+  description: |
+    Links to the resources in question.
+  in: body
+  required: true
+  type: array
+updated:
+  description: |
+    The date and time when the resource was updated. The date and time
+    stamp format is `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
+
+    ::
+
+      CCYY-MM-DDThh:mm:ss±hh:mm
+
+    For example, ``2015-08-27T09:49:58-05:00``. The ``±hh:mm``
+    value, if included, is the time zone as an offset from UTC.  In
+    the previous example, the offset value is ``-05:00``.
+  in: body
+  required: true
+  type: string
