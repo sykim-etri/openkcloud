@@ -5,6 +5,7 @@
 # (MSIT) (No.RS-2025-02263869, Development of AI Semiconductor Cloud Platform
 # Establishment and Optimization Technology)
 #
+# Modifications Copyright (C) 2020 ZTE Corporation
 # Copyright 2018 Beijing Lenovo Software Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,19 +21,21 @@
 # under the License.
 
 
+"""
+Cyborg Rebellions AICHIP driver implementation.
+"""
+
 from cyborg.accelerator.drivers.aichip.base import AICHIPDriver
-from cyborg.accelerator.drivers.aichip.furiosa.driver import (
-    FuriosaAICHIPDriver
-)
-from cyborg.tests import base
+from cyborg.accelerator.drivers.aichip.rebellions import sysinfo
 
 
-class TestAICHIPDriver(base.TestCase):
-    def test_create(self):
-        # FuriosaAICHIPDriver.VENDOR == 'furiosa'
-        AICHIPDriver.create(FuriosaAICHIPDriver.VENDOR)
-        self.assertRaises(LookupError, AICHIPDriver.create, "unknown_vendor")
+class RebellionsAICHIPDriver(AICHIPDriver):
+    """Class for Rebellions AICHIP drivers.
+    Vendor should implement their specific drivers in this class.
+    """
 
-    def test_discover(self):
-        d = AICHIPDriver()
-        self.assertRaises(NotImplementedError, d.discover)
+    VENDOR = "rebellions"
+    VENDOR_ID = "1eff"
+
+    def discover(self):
+        return sysinfo.discover(self.VENDOR_ID)
